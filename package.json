@@ -1,0 +1,20 @@
+{
+  "name": "botis",
+  "version": "1.0.0",
+  "description": "A Github issues bot",
+  "main": "bin/index.js",
+  "bin": "bin/index.js",
+  "scripts": {
+    "test": "exit 1"
+  },
+  "author": "Pedro Tacla Yamada",
+  "license": "MIT",
+  "dependencies": {
+    "bluebird": "^2.9.14",
+    "chrono-node": "^1.0.4",
+    "commander": "^2.7.1",
+    "lodash": "^3.5.0",
+    "octonode": "^0.6.16",
+    "redis-scheduler": "^0.9.3"
+  }
+}
