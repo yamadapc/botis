@@ -7,6 +7,8 @@ var _ = require('lodash');
 var github = require('octonode');
 var Scheduler = require('redis-scheduler');
 
+var logger = require('../lib/request-logger');
+
 Promise.promisifyAll(Scheduler.prototype);
 _.each(github, function(sub) {
   Promise.promisifyAll(sub.prototype || sub);
@@ -31,75 +33,74 @@ function main(argv) {
   }
 
   program.labels && (program.labels = program.labels.split(','));
+  logger.start();
   mainLoop(program);
 }
 
 function mainLoop(options) {
   var client = github.client(options.token);
+  Promise.promisifyAll(client);
   var repo = client.repo(options.repo);
-  var since = new Date();
+  var since;
   var scheduler = new Scheduler({
     port: options.redisPort,
     host: options.redisHost,
   });
 
-  setInterval(function() {
+  setInterval(function run() {
     var waitingP = getIssuesWithLabels(repo, options.labels, since);
-    log(waitingP, 'HTTP GET 200 /repos/' + options.repo + '/issues');
+    waitingP.then(function() {
+      since = new Date();
+    });
 
     var commentssP = waitingP
       .map(function(issue) {
-        var commentsP = client.issue(options.repo, issue.id).commentsAsync();
-        log(
-          commentsP,
-          'HTTP GET 200 /repos/' + options.repo + '/issues/' + issue.id + '/comments'
-        );
+        var commentsP = client.issue(options.repo, issue.number)
+          .commentsAsync().spread(_.identity); // discard the headers
         return commentsP;
       });
 
     var toScheduleP = Promise.join(waitingP, commentssP)
       .spread(merge)
-      .map(parseCommand)
+      .map(_.partial(parseCommand, options.user))
       .filter(_.identity);
 
     toScheduleP
       .then(function(commands) {
-        since = new Date();
         return Promise.map(commands, function(command) {
-          return scheduleReminder(scheduler, command)
-            .then(_.partial(replyToComment, command))
+          return scheduleReminder(options, client, scheduler, command)
+            .then(_.partial(replyToComment, client, options.repo, command))
             .catch(handleError);
         });
       })
       .catch(function(err) {
-        since = new Date();
         handleError(err);
       });
   }, 10000);
 
   function handleError(err) {
-    console.error(err.stack);
+    console.error(err.stack || err);
   }
 
   function merge(issues, commentss) {
     return _.map(issues, function(issue, i) {
       var comments = commentss[i];
-      issue.ncomments = issue.comments;
       issue.comments = comments;
       return issue;
     });
   }
 }
 
+exports.getIssuesWithLabels = getIssuesWithLabels;
 function getIssuesWithLabels(repo, targetLabels, since) {
   var query = { state: 'all', page: 1, per_page: 3000 };
-  if(since) query.since = since;
+  if(since) query.since = since.toISOString();
 
-  return repo.issuesAsync().spread(filterIssues);
+  return repo.issuesAsync(query).spread(filterIssues);
 
-  function filterIssues(issues ) {
+  function filterIssues(issues) {
     return _.filter(issues, function(issue) {
-      return hasLabels(issue) && issue.comments[0];
+      return hasLabels(issue) && issue.comments;
     });
   }
 
@@ -110,55 +111,65 @@ function getIssuesWithLabels(repo, targetLabels, since) {
   }
 }
 
-function parseCommand(issue) {
+exports.parseCommand = parseCommand;
+function parseCommand(botUser, issue) {
   var commentsDates = _(issue.comments).map(function(comment) {
     return !isMe(comment) && chrono.parseDate(comment.body);
   });
   var commandIdx = commentsDates.findLastIndex(function(date) {
     return !!date;
-  }).value();
+  });
 
-  if(!commandIdx || alreadyAnswered(commandIdx)) {
+  if(commandIdx < 0 || alreadyAnswered(commandIdx)) {
     return null;
   }
 
   return {
-    date: commentsDates[commandIdx],
+    date: commentsDates.value()[commandIdx],
     comment: issue.comments[commandIdx],
     issue: issue,
   };
 
   function alreadyAnswered(commandIdx) {
-    return commandIdx < issue.ncomments - 1 &&
-      _.some(issue.comments.slice(commandIdx), isMe);
+    return _.some(issue.comments.slice(commandIdx + 1), isMe);
   }
 
   function isMe(comment) {
-    return comment.user.login === 'yamadapc';
+    return comment.user.login === botUser;
   }
 }
 
-function scheduleReminder(scheduler, command) {
-  return scheduler.scheduleAsync({
-    key: 'issue:' + command.issue.id,
-    expire: command.date,
-    handler: _.partial(sendReminder, command.issue.id),
-  });
+exports.scheduleReminder = scheduleReminder;
+function scheduleReminder(options, client, scheduler, command) {
+  var key = options.repo + ':issue:' + command.issue.number;
+  return scheduler.cancelAsync(key)
+    .catch(function() {})
+    .then(function() {
+      return scheduler.scheduleAsync({
+        key: key,
+        expire: command.date,
+        handler: _.partial(sendReminder, client, options.repo, command),
+      });
+    });
 }
 
-function sendReminder(id) {
-  console.log('Sending reminder...');
+exports.sendReminder = sendReminder;
+function sendReminder(client, name, command) {
+  return commentOnIssue(client, name, command.issue.number,
+    'Reminding you about this :)');
 }
 
-function replyToComment(client, command) {
-  console.log('Replying to comment');
+exports.replyToComment = replyToComment;
+function replyToComment(client, name, command) {
+  return commentOnIssue(client, name, command.issue.number,
+    'I\'ve set a reminder for this issue which will expire on:\n' +
+    '**' + command.date + '**');
 }
 
-function log(promise, message) {
-  promise.then(function() {
-    console.log(message);
-  });
-  return promise;
+function commentOnIssue(client, name, number, message) {
+  var url = '/repos/' + name + '/issues/' + number + '/comments';
+  var req = client.postAsync(url, { body: message });
+  return req;
 }
 
 if(!module.parent) {
