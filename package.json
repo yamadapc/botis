@@ -2,10 +2,10 @@
   "name": "botis",
   "version": "1.0.0",
   "description": "A Github issues bot",
-  "main": "bin/index.js",
-  "bin": "bin/index.js",
+  "main": "lib/index.js",
+  "bin": "bin/botis",
   "scripts": {
-    "test": "mocha"
+    "test": " mocha --require blanket -R mocha-spec-cov-alt"
   },
   "author": "Pedro Tacla Yamada",
   "license": "MIT",
@@ -19,8 +19,25 @@
     "redis-scheduler": "^0.9.3"
   },
   "devDependencies": {
-    "mocha": "^2.2.1",
+    "blanket": "^1.1.6",
+    "mocha": "^2.1.0",
     "mocha-make-stub": "^2.1.0",
+    "mocha-spec-cov-alt": "^0.2.4",
     "should": "^5.2.0"
+  },
+  "config": {
+    "blanket": {
+      "data-cover-never": [
+        "node_modules"
+      ],
+      "pattern": [
+        "lib",
+        "bin"
+      ],
+      "spec-cov": {
+        "threshold": 80,
+        "localThreshold": 80
+      }
+    }
   }
 }

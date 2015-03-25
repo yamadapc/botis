@@ -1,0 +1,33 @@
+#!/usr/bin/env node
+'use strict';
+var program = require('commander');
+var logger = require('../lib/request-logger');
+
+var mainLoop = require('..').mainLoop;
+
+function main(argv) {
+  program
+    .option('-r, --repo <repo>', 'The repository to watch')
+    .option('-u, --user <user>', 'The bot\'s user name')
+    .option('-t, --token <token>', 'A GitHub API token')
+    .option('-p, --redis-port [port=6379]', 'A RedisDB port')
+    .option('-h, --redis-host [host=localhost]', 'A RedisDB host')
+    .option('-l, --labels <labels ...>', 'The issue labels to consider')
+    .parse(argv);
+
+  if(!program.labels || !program.repo || !program.token || !program.user) {
+    console.error(
+      'Missing required fields. For more information, try:\n' +
+      'botis --help'
+    );
+    process.exit(1);
+  }
+
+  program.labels && (program.labels = program.labels.split(','));
+  logger.start();
+  mainLoop(program);
+}
+
+if(!module.parent) {
+  main(process.argv);
+}
