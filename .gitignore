@@ -32,3 +32,4 @@ node_modules
 token
 .tern-port
 coverage.html
+lcov
