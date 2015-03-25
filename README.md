@@ -1,6 +1,6 @@
 botis
 =====
-A GitHub bot.
+A GitHub bot for setting reminders on stuff.
 
 ## License
 This code is licensed under the MIT license for Pedro Tacla Yamada. For more
