@@ -5,7 +5,8 @@
   "main": "lib/index.js",
   "bin": "bin/botis",
   "scripts": {
-    "test": " mocha --require blanket -R mocha-spec-cov-alt"
+    "test": " mocha --require blanket -R mocha-spec-cov-alt",
+    "coverage": "mocha --require blanket -R html-cov > coverage.html"
   },
   "author": "Pedro Tacla Yamada",
   "license": "MIT",
