@@ -5,6 +5,7 @@
   "main": "lib/index.js",
   "bin": "bin/botis",
   "scripts": {
+    "start": "./bin/botis -r $REPO -u $USERNAME -t $TOKEN -l $LABELS",
     "test": " mocha --require blanket -R mocha-spec-cov-alt",
     "coverage": "mocha --require blanket -R html-cov > coverage.html"
   },
