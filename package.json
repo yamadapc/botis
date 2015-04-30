@@ -22,9 +22,9 @@
   },
   "devDependencies": {
     "blanket": "^1.1.6",
-    "mocha": "^2.1.0",
+    "mocha": ">=2.1.0 && <2.2",
     "mocha-make-stub": "^2.1.0",
-    "mocha-spec-cov-alt": "^0.2.4",
+    "mocha-spec-cov-alt": "^0.2.5",
     "should": "^5.2.0"
   },
   "config": {
@@ -37,8 +37,8 @@
         "bin"
       ],
       "spec-cov": {
-        "threshold": 80,
-        "localThreshold": 80,
+        "threshold": 0,
+        "localThreshold": 0,
         "lcovOutput": "lcov"
       }
     }
